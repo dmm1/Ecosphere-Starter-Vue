@@ -25,10 +25,10 @@
               v-model="filters.search"
               class="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               placeholder="Search by email or name..."
-              @keyup.enter="loadUsers"
+              @keyup.enter="handleSearch"
             />
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-              <button @click="loadUsers" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+              <button @click="handleSearch" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
                 </svg>
@@ -267,52 +267,6 @@ const pagination = reactive({
   totalPages: 1
 })
 
-// Router
-const router = useRouter()
-
-// Computed properties
-const paginationRange = computed(() => {
-  const totalPages = pagination.totalPages
-  const currentPage = pagination.page
-  const range = []
-  
-  if (totalPages <= 5) {
-    // If 5 or fewer pages, show all
-    for (let i = 1; i <= totalPages; i++) {
-      range.push(i)
-    }
-  } else {
-    // Always include first page, current page, and last page
-    range.push(1)
-    
-    // Start page based on current page
-    const startPage = Math.max(2, currentPage - 1)
-    const endPage = Math.min(totalPages - 1, currentPage + 1)
-    
-    // Add ellipsis after first page if needed
-    if (startPage > 2) {
-      range.push('...')
-    }
-    
-    // Add pages around current page
-    for (let i = startPage; i <= endPage; i++) {
-      range.push(i)
-    }
-    
-    // Add ellipsis before last page if needed
-    if (endPage < totalPages - 1) {
-      range.push('...')
-    }
-    
-    // Add last page if not already included
-    if (totalPages > 1) {
-      range.push(totalPages)
-    }
-  }
-  
-  return range
-})
-
 // Methods
 const loadUsers = async () => {
   loading.value = true
@@ -325,26 +279,35 @@ const loadUsers = async () => {
     if (filters.is_active) activeFilters.is_active = filters.is_active
     if (filters.is_staff) activeFilters.is_staff = filters.is_staff
     
+    // Add pagination parameters
+    const params = {
+      ...activeFilters,
+      page: pagination.page,
+      page_size: pagination.pageSize
+    }
+    
     // Fetch users with pagination and filters
-    const response = await userApi.getUsers(pagination.page, activeFilters)
+    const response = await userApi.getUsers(params)
     users.value = response.data.results
     
     // Update pagination state
     pagination.count = response.data.count
     pagination.totalPages = Math.ceil(response.data.count / pagination.pageSize)
   } catch (err) {
-    error.value = 'Failed to load users. Please try again.'
-    console.error('Error loading users:', err)
+    error.value = err.response?.data?.detail || 'Failed to load users'
   } finally {
     loading.value = false
   }
 }
 
 const goToPage = (page) => {
-  // Validate page number
   if (page < 1 || page > pagination.totalPages || page === '...') return
-  
   pagination.page = page
+  loadUsers()
+}
+
+const handleSearch = () => {
+  pagination.page = 1 // Reset to first page when searching
   loadUsers()
 }
 
@@ -355,6 +318,43 @@ const clearFilters = () => {
   pagination.page = 1
   loadUsers()
 }
+
+// Computed properties for pagination
+const paginationRange = computed(() => {
+  const totalPages = pagination.totalPages
+  const currentPage = pagination.page
+  const range = []
+  
+  if (totalPages <= 7) {
+    // If 7 or fewer pages, show all
+    for (let i = 1; i <= totalPages; i++) {
+      range.push(i)
+    }
+  } else {
+    // Always include first and last page
+    range.push(1)
+    
+    if (currentPage > 3) {
+      range.push('...')
+    }
+    
+    // Add pages around current page
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(totalPages - 1, currentPage + 1)
+    
+    for (let i = start; i <= end; i++) {
+      range.push(i)
+    }
+    
+    if (currentPage < totalPages - 2) {
+      range.push('...')
+    }
+    
+    range.push(totalPages)
+  }
+  
+  return range
+})
 
 // Format a date in a human-readable format
 const formatDate = (dateString) => {

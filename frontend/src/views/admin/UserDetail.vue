@@ -81,7 +81,7 @@
                   <input 
                     type="text" 
                     id="first_name" 
-                    v-model="userData.profile.first_name" 
+                    v-model="userData.first_name" 
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white" 
                   />
                 </div>
@@ -91,7 +91,7 @@
                   <input 
                     type="text" 
                     id="last_name" 
-                    v-model="userData.profile.last_name" 
+                    v-model="userData.last_name" 
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white" 
                   />
                 </div>
@@ -123,7 +123,7 @@
                 <label for="bio" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Bio</label>
                 <textarea 
                   id="bio" 
-                  v-model="userData.profile.bio" 
+                  v-model="userData.bio" 
                   rows="3" 
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
                 ></textarea>
@@ -333,15 +333,15 @@ const showDeleteModal = ref(false)
 const originalUserData = ref({})
 const userData = reactive({
   email: '',
+  first_name: '',
+  last_name: '',
+  bio: '',
   is_active: true,
   is_staff: false,
   date_joined: '',
   last_login: null,
   profile: {
-    first_name: '',
-    last_name: '',
-    phone_number: '',
-    bio: ''
+    phone_number: ''
   }
 })
 
@@ -354,7 +354,7 @@ const loadUser = async () => {
     const response = await userApi.getUser(userId)
     
     // Store original data for reset functionality
-    originalUserData.value = { ...response.data }
+    originalUserData.value = JSON.parse(JSON.stringify(response.data))
     
     // Set user data
     Object.assign(userData, response.data)
@@ -362,10 +362,7 @@ const loadUser = async () => {
     // Ensure profile structure exists
     if (!userData.profile) {
       userData.profile = {
-        first_name: '',
-        last_name: '',
-        phone_number: '',
-        bio: ''
+        phone_number: ''
       }
     }
     
@@ -382,12 +379,19 @@ const saveUser = async () => {
   successMessage.value = ''
   
   try {
-    await userApi.updateUser(userId, {
+    const updateData = {
       email: userData.email,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      bio: userData.bio,
       is_active: userData.is_active,
       is_staff: userData.is_staff,
-      profile: userData.profile
-    })
+      profile: {
+        phone_number: userData.profile.phone_number
+      }
+    }
+    
+    await userApi.updateUser(userId, updateData)
     
     // Update original data after successful save
     originalUserData.value = JSON.parse(JSON.stringify(userData))

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import render
+from django.db import models
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -7,6 +8,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.conf import settings
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Profile
 from .serializers import (
@@ -111,12 +116,42 @@ class LockedView(APIView):
 
 
 # Administrative views
+class StandardResultsSetPagination(PageNumberPagination):
+    """Standard pagination class that provides configurable pagination."""
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class UserListView(generics.ListAPIView):
     """API view for listing all users (admin only)."""
     
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = StandardResultsSetPagination
+    
+    def get_queryset(self):
+        queryset = User.objects.all()
+        
+        # Apply filters
+        search = self.request.query_params.get('search', None)
+        is_active = self.request.query_params.get('is_active', None)
+        is_staff = self.request.query_params.get('is_staff', None)
+        
+        if search:
+            queryset = queryset.filter(
+                models.Q(email__icontains=search) |
+                models.Q(first_name__icontains=search) |
+                models.Q(last_name__icontains=search)
+            )
+        
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+            
+        if is_staff is not None:
+            queryset = queryset.filter(is_staff=is_staff.lower() == 'true')
+            
+        return queryset.order_by('-date_joined')
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -125,3 +160,41 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+
+
+class ResetUserPasswordView(APIView):
+    """API view for admin-initiated password reset."""
+    
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            
+            # Generate password reset token
+            token = default_token_generator.make_token(user)
+            
+            # Create reset link (frontend needs to handle this URL)
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}&user={user.pk}"
+            
+            # Send email
+            send_mail(
+                'Password Reset',
+                f'Click the following link to reset your password: {reset_url}',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            
+            return Response({'detail': 'Password reset link sent successfully.'})
+            
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'User not found.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'detail': 'Failed to send reset email.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

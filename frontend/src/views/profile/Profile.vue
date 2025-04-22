@@ -79,7 +79,7 @@
                   <input 
                     type="text" 
                     id="first_name" 
-                    v-model="userData.profile.first_name" 
+                    v-model="userData.first_name" 
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white" 
                   />
                 </div>
@@ -89,7 +89,7 @@
                   <input 
                     type="text" 
                     id="last_name" 
-                    v-model="userData.profile.last_name" 
+                    v-model="userData.last_name" 
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white" 
                   />
                 </div>
@@ -122,7 +122,7 @@
                 <label for="bio" class="block text-sm font-medium text-gray-700 dark:text-gray-300">About Me</label>
                 <textarea 
                   id="bio" 
-                  v-model="userData.profile.bio" 
+                  v-model="userData.bio" 
                   rows="4" 
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Tell us a little about yourself..."
@@ -217,15 +217,15 @@ const originalUserData = ref({})
 
 const userData = reactive({
   email: '',
+  first_name: '',
+  last_name: '',
+  bio: '',
   date_joined: '',
   last_login: null,
   is_active: true,
   is_staff: false,
   profile: {
-    first_name: '',
-    last_name: '',
     phone_number: '',
-    bio: ''
   }
 })
 
@@ -242,10 +242,7 @@ const loadProfile = async () => {
       // Ensure profile structure exists
       if (!userData.profile) {
         userData.profile = {
-          first_name: '',
-          last_name: '',
-          phone_number: '',
-          bio: ''
+          phone_number: ''
         }
       }
       
@@ -279,9 +276,9 @@ const updateProfile = async () => {
   try {
     // Prepare update data including both user and profile data
     const updateData = {
-      first_name: userData.profile.first_name,
-      last_name: userData.profile.last_name,
-      bio: userData.profile.bio,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      bio: userData.bio,
       profile: {
         phone_number: userData.profile.phone_number
       }
