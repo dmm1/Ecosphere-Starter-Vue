@@ -2,32 +2,6 @@
   <div>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Profile</h1>
     
-    <!-- WebSocket Test Button with status indicator -->
-    <div class="fixed top-4 right-4 z-50 flex flex-col items-end">
-      <div class="flex items-center mb-2">
-        <span class="mr-2 text-sm text-white">
-          WebSocket: 
-          <span :class="{
-            'text-green-400': wsConnected,
-            'text-red-400': !wsConnected
-          }">{{ wsConnected ? 'Connected' : 'Disconnected' }}</span>
-        </span>
-        <div :class="{
-          'w-3 h-3 rounded-full': true,
-          'bg-green-500': wsConnected,
-          'bg-red-500': !wsConnected
-        }"></div>
-      </div>
-      
-      <button 
-        @click="testWebSocketUpdate" 
-        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow-md disabled:bg-gray-400"
-        :disabled="!wsConnected"
-      >
-        Test WebSocket Update
-      </button>
-    </div>
-    
     <!-- Loading state -->
     <div v-if="loading" class="flex justify-center my-12">
       <svg class="animate-spin h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -62,6 +36,7 @@
         </button>
       </div>
       
+      <!-- Profile content grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Profile Info Card -->
         <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden lg:col-span-2">
@@ -227,17 +202,16 @@
 </template>
 
 <script setup>
-import { testMessageHandling } from '../../utils/websocket-debug';
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue' // <-- Import nextTick
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '../../store/auth'
-import { useUserStore } from '../../stores/user' // Fixed import path: store -> stores
+import { useUserStore } from '../../stores/user'
 import { userApi } from '../../api'
 import { webSocketService } from '../../services/websocket'
 import { useToast } from '../../composables/useToast'
 
 // Setup stores
 const authStore = useAuthStore()
-const userStore = useUserStore() // Add userStore for direct profile updates
+const userStore = useUserStore()
 const { showToast } = useToast()
 
 // Reactive state
@@ -277,39 +251,6 @@ const mergeDeep = (target, source) => {
   return target;
 }
 
-// Track WebSocket connection status
-const wsConnected = ref(false);
-
-// Add a function to test WebSocket handling with better error handling
-const testWebSocketUpdate = () => {
-  // Check connection before sending
-  if (!webSocketService.isConnected) {
-    showToast('WebSocket is not connected. Please wait or refresh the page.', 'error');
-    return;
-  }
-  
-  // Create test message
-  const testMessage = {
-    action: 'profile_updated',
-    user_id: authStore.user?.id,
-    data: {
-      first_name: 'WebSocket',
-      last_name: 'Test',
-      bio: `This update was sent via WebSocket at ${new Date().toLocaleTimeString()}`
-    }
-  };
-  
-  // Try to send the message
-  const sent = webSocketService.send(testMessage);
-  
-  if (sent) {
-    showToast('Test message sent successfully!', 'success');
-    console.log('Test message sent:', testMessage);
-  } else {
-    showToast('Failed to send test message', 'error');
-  }
-};
-
 const handleWebSocketMessage = (message) => {
   console.log('[Profile.vue Handler] Received message:', message); 
   
@@ -344,12 +285,8 @@ const handleWebSocketMessage = (message) => {
         console.log('[Profile.vue] Ignoring update for different user:', messageUserId);
       }
     }
-    
-    // Only process further if the above direct match didn't handle it
-    // ...rest of the existing message handling code...
   } catch (e) {
     console.error('[Profile.vue] Error in WebSocket handler:', e);
-    showToast(`WebSocket error: ${e.message}`, 'error');
   }
 }
 
@@ -442,11 +379,6 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
-// Check connection status regularly
-const wsStatusInterval = setInterval(() => {
-  wsConnected.value = webSocketService.isConnected;
-}, 1000);
-
 // Load profile data on component mount
 onMounted(async () => {
   await loadProfile()
@@ -455,7 +387,6 @@ onMounted(async () => {
   if (authStore.user && token) {
     try {
       webSocketService.connect();
-      showToast('WebSocket connected successfully', 'success');
       
       unsubscribeWebSocket = webSocketService.subscribe((data) => {
         console.log('[WebSocket Received]', data);
@@ -463,27 +394,15 @@ onMounted(async () => {
       });
       
       console.log('[Profile.vue] WebSocket subscription active');
-      
-      // Initial connection status check
-      setTimeout(() => {
-        wsConnected.value = webSocketService.isConnected;
-        console.log('WebSocket connection status:', wsConnected.value ? 'Connected' : 'Disconnected');
-        
-        if (wsConnected.value) {
-          showToast('WebSocket connected successfully', 'success');
-        } else {
-          showToast('WebSocket connection pending or failed', 'warning');
-        }
-      }, 1000);
     } catch (e) {
       console.error('WebSocket connection error:', e);
-      showToast('WebSocket connection failed', 'error');
     }
   }
 })
 
 onUnmounted(() => {
-  if (unsubscribeWebSocket) unsubscribeWebSocket()
-  clearInterval(wsStatusInterval);
+  if (unsubscribeWebSocket) {
+    unsubscribeWebSocket();
+  }
 })
 </script>
