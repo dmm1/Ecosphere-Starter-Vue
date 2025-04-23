@@ -52,6 +52,7 @@
           <div class="ml-4 relative flex-shrink-0">
             <div>
               <button 
+                ref="profileButtonRef"
                 @click="toggleProfileMenu"
                 class="bg-white dark:bg-gray-700 rounded-full flex focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" 
                 id="user-menu" 
@@ -68,6 +69,7 @@
             <!-- Dropdown menu -->
             <div 
               v-show="profileMenuOpen"
+              ref="profileDropdownRef"
               class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none"
               role="menu"
               aria-orientation="vertical"
@@ -89,6 +91,17 @@
                   Your Profile
                 </router-link>
                 
+                <!-- Admin: User Management -->
+                <router-link 
+                  v-if="isAdmin"
+                  to="/admin/users" 
+                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
+                  role="menuitem"
+                  @click="profileMenuOpen = false"
+                >
+                  User Management
+                </router-link>
+                
                 <!-- Change Password -->
                 <router-link 
                   to="/change-password" 
@@ -98,6 +111,9 @@
                 >
                   Change Password
                 </router-link>
+                
+                <!-- Divider -->
+                <div class="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                 
                 <!-- Sign out -->
                 <button 
@@ -152,6 +168,8 @@ const router = useRouter()
 
 // Reactive state
 const profileMenuOpen = ref(false)
+const profileButtonRef = ref(null)
+const profileDropdownRef = ref(null)
 
 // Computed properties
 const user = computed(() => authStore.user)
@@ -167,7 +185,9 @@ const toggleDarkMode = () => {
   settingsStore.toggleDarkMode();
 }
 
-const toggleProfileMenu = () => {
+const toggleProfileMenu = (event) => {
+  // Stop propagation to prevent immediate closing
+  event.stopPropagation()
   profileMenuOpen.value = !profileMenuOpen.value
 }
 
@@ -178,7 +198,11 @@ const handleLogout = async () => {
 
 // Click outside to close the dropdown
 const closeDropdownOnClickOutside = (event) => {
-  if (profileMenuOpen.value) {
+  // Don't close if clicking on the button itself or inside the dropdown
+  const isClickInsideDropdown = profileDropdownRef.value && profileDropdownRef.value.contains(event.target)
+  const isClickOnProfileButton = profileButtonRef.value && profileButtonRef.value.contains(event.target)
+  
+  if (profileMenuOpen.value && !isClickInsideDropdown && !isClickOnProfileButton) {
     profileMenuOpen.value = false
   }
 }
