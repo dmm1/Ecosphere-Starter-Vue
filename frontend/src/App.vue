@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen" :class="isDarkMode ? 'dark' : ''">
+    <ToastContainer />
     <NavBar v-if="isAuthenticated" />
     <main class="container mx-auto px-4 py-6">
       <router-view />
@@ -16,6 +17,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 import { useSettingsStore } from './store/settings'
 import NavBar from './components/layout/NavBar.vue'
+import ToastContainer from './components/ToastContainer.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

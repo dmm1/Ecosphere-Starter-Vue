@@ -2,6 +2,32 @@
   <div>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Profile</h1>
     
+    <!-- WebSocket Test Button with status indicator -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col items-end">
+      <div class="flex items-center mb-2">
+        <span class="mr-2 text-sm text-white">
+          WebSocket: 
+          <span :class="{
+            'text-green-400': wsConnected,
+            'text-red-400': !wsConnected
+          }">{{ wsConnected ? 'Connected' : 'Disconnected' }}</span>
+        </span>
+        <div :class="{
+          'w-3 h-3 rounded-full': true,
+          'bg-green-500': wsConnected,
+          'bg-red-500': !wsConnected
+        }"></div>
+      </div>
+      
+      <button 
+        @click="testWebSocketUpdate" 
+        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow-md disabled:bg-gray-400"
+        :disabled="!wsConnected"
+      >
+        Test WebSocket Update
+      </button>
+    </div>
+    
     <!-- Loading state -->
     <div v-if="loading" class="flex justify-center my-12">
       <svg class="animate-spin h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -201,12 +227,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { testMessageHandling } from '../../utils/websocket-debug';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue' // <-- Import nextTick
 import { useAuthStore } from '../../store/auth'
+import { useUserStore } from '../../stores/user' // Fixed import path: store -> stores
 import { userApi } from '../../api'
+import { webSocketService } from '../../services/websocket'
+import { useToast } from '../../composables/useToast'
 
-// Setup auth store
+// Setup stores
 const authStore = useAuthStore()
+const userStore = useUserStore() // Add userStore for direct profile updates
+const { showToast } = useToast()
 
 // Reactive state
 const loading = ref(true)
@@ -228,6 +260,98 @@ const userData = reactive({
     phone_number: '',
   }
 })
+
+// WebSocket: handle live profile updates
+let unsubscribeWebSocket = null
+
+// Utility function for deep merging objects
+const mergeDeep = (target, source) => {
+  for (const key in source) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (!target[key]) Object.assign(target, { [key]: {} });
+      mergeDeep(target[key], source[key]);
+    } else {
+      Object.assign(target, { [key]: source[key] });
+    }
+  }
+  return target;
+}
+
+// Track WebSocket connection status
+const wsConnected = ref(false);
+
+// Add a function to test WebSocket handling with better error handling
+const testWebSocketUpdate = () => {
+  // Check connection before sending
+  if (!webSocketService.isConnected) {
+    showToast('WebSocket is not connected. Please wait or refresh the page.', 'error');
+    return;
+  }
+  
+  // Create test message
+  const testMessage = {
+    action: 'profile_updated',
+    user_id: authStore.user?.id,
+    data: {
+      first_name: 'WebSocket',
+      last_name: 'Test',
+      bio: `This update was sent via WebSocket at ${new Date().toLocaleTimeString()}`
+    }
+  };
+  
+  // Try to send the message
+  const sent = webSocketService.send(testMessage);
+  
+  if (sent) {
+    showToast('Test message sent successfully!', 'success');
+    console.log('Test message sent:', testMessage);
+  } else {
+    showToast('Failed to send test message', 'error');
+  }
+};
+
+const handleWebSocketMessage = (message) => {
+  console.log('[Profile.vue Handler] Received message:', message); 
+  
+  try {
+    // Simple direct handler for the exact message format shown in the error
+    if (message && typeof message === 'object' && message.action === 'profile_updated') {
+      console.log('[Profile.vue] Exactly matched profile_updated action!');
+      
+      // Convert IDs to strings to avoid numeric vs string ID comparison issues
+      const messageUserId = String(message.user_id || '');
+      const currentUserId = String(authStore.user?.id || '');
+      
+      console.log('[Profile.vue] Message user_id:', messageUserId, 'Current user_id:', currentUserId);
+      
+      // Process the message if it's for the current user or no user_id is specified
+      if (!messageUserId || messageUserId === currentUserId) {
+        console.log('[Profile.vue] Processing update for current user');
+        
+        // Extract the data (either from the data property or the message itself)
+        const updateData = message.data || {};
+        console.log('[Profile.vue] Update data:', updateData);
+        
+        // Apply updates directly to userData object
+        mergeDeep(userData, updateData);
+        
+        // Show success message
+        successMessage.value = 'Profile updated in real-time!';
+        showToast('Profile updated in real-time!', 'success');
+        
+        return; // Stop processing after handling
+      } else {
+        console.log('[Profile.vue] Ignoring update for different user:', messageUserId);
+      }
+    }
+    
+    // Only process further if the above direct match didn't handle it
+    // ...rest of the existing message handling code...
+  } catch (e) {
+    console.error('[Profile.vue] Error in WebSocket handler:', e);
+    showToast(`WebSocket error: ${e.message}`, 'error');
+  }
+}
 
 // Methods
 const loadProfile = async () => {
@@ -318,8 +442,48 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
+// Check connection status regularly
+const wsStatusInterval = setInterval(() => {
+  wsConnected.value = webSocketService.isConnected;
+}, 1000);
+
 // Load profile data on component mount
-onMounted(() => {
-  loadProfile()
+onMounted(async () => {
+  await loadProfile()
+  // Only connect to WebSocket if user is authenticated and token exists
+  const token = localStorage.getItem('access_token')
+  if (authStore.user && token) {
+    try {
+      webSocketService.connect();
+      showToast('WebSocket connected successfully', 'success');
+      
+      unsubscribeWebSocket = webSocketService.subscribe((data) => {
+        console.log('[WebSocket Received]', data);
+        handleWebSocketMessage(data);
+      });
+      
+      console.log('[Profile.vue] WebSocket subscription active');
+      
+      // Initial connection status check
+      setTimeout(() => {
+        wsConnected.value = webSocketService.isConnected;
+        console.log('WebSocket connection status:', wsConnected.value ? 'Connected' : 'Disconnected');
+        
+        if (wsConnected.value) {
+          showToast('WebSocket connected successfully', 'success');
+        } else {
+          showToast('WebSocket connection pending or failed', 'warning');
+        }
+      }, 1000);
+    } catch (e) {
+      console.error('WebSocket connection error:', e);
+      showToast('WebSocket connection failed', 'error');
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (unsubscribeWebSocket) unsubscribeWebSocket()
+  clearInterval(wsStatusInterval);
 })
 </script>

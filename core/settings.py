@@ -40,9 +40,14 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG')
+DEBUG = True
 
-ALLOWED_HOSTS = env('ALLOWED_HOSTS')
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.1.252',
+    '*',  # For development only
+]
 
 # Application definition
 
@@ -131,8 +136,8 @@ if USE_REDIS:
 else:
     CHANNEL_LAYERS = {
         "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        },
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
     }
 
 # Database
@@ -229,8 +234,35 @@ AXES_LOCKOUT_URL = '/api/account/locked/'
 AXES_RESET_ON_SUCCESS = True
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS')
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://192.168.1.252:5173',
+]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://192\.168\.1\.\d+:5173$",
+]
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # Email settings
 if env('EMAIL_URL'):
@@ -270,6 +302,11 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
+else:
+    # For development, disable security settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

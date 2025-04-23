@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api, { setAuthToken } from '../api'
+import { webSocketService } from '../services/websocket' // Ensure service is imported
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -8,6 +9,8 @@ export const useAuthStore = defineStore('auth', {
     refreshToken: null,
     loading: false,
     error: null,
+    socket: null,
+    isConnected: false,
   }),
   
   getters: {
@@ -17,6 +20,73 @@ export const useAuthStore = defineStore('auth', {
   },
   
   actions: {
+    // Initialize WebSocket connection
+    initializeWebSocket() {
+      if (this.socket) {
+        this.socket.close()
+      }
+
+      if (!this.accessToken) {
+        console.warn('No access token available for WebSocket connection')
+        return
+      }
+
+      // For development
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsHost = import.meta.env.DEV ? window.location.hostname + ':8000' : window.location.host
+      const wsUrl = `${wsProtocol}//${wsHost}/ws/notifications/?token=${this.accessToken}`
+
+      console.log('Connecting to WebSocket:', wsUrl)
+      this.socket = new WebSocket(wsUrl)
+
+      this.socket.onopen = () => {
+        this.isConnected = true
+        console.log('WebSocket connected')
+      }
+
+      this.socket.onclose = (event) => {
+        this.isConnected = false
+        console.log('WebSocket disconnected with code:', event.code)
+        
+        // Don't reconnect if closed due to authentication issues
+        if (event.code !== 4001) {
+          // Try to reconnect after 5 seconds
+          setTimeout(() => this.initializeWebSocket(), 5000)
+        }
+      }
+
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          this.handleWebSocketMessage(data)
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error)
+        }
+      }
+
+      this.socket.onerror = (error) => {
+        console.error('WebSocket error:', error)
+      }
+    },
+
+    // Handle incoming WebSocket messages
+    handleWebSocketMessage(data) {
+      switch (data.type) {
+        case 'notification':
+          // Update user data when receiving a notification
+          this.fetchCurrentUser()
+          break
+        case 'connection_established':
+          console.log('WebSocket connection established:', data.message)
+          break
+        case 'error':
+          console.error('WebSocket error:', data.message)
+          break
+        default:
+          console.log('Unknown message type:', data)
+      }
+    },
+
     // Initialize auth from localStorage
     async initializeAuth() {
       const accessToken = localStorage.getItem('accessToken')
@@ -29,6 +99,8 @@ export const useAuthStore = defineStore('auth', {
         
         try {
           await this.fetchCurrentUser()
+          // Initialize WebSocket connection after successful auth
+          this.initializeWebSocket()
         } catch (error) {
           // If fetching user fails, clear the tokens
           this.clearAuth()
@@ -44,6 +116,11 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       setAuthToken(null)
+      // Close WebSocket connection on logout
+      if (this.socket) {
+        this.socket.close()
+        this.socket = null
+      }
     },
     
     // Login user
@@ -60,6 +137,9 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('accessToken', this.accessToken)
         localStorage.setItem('refreshToken', this.refreshToken)
         setAuthToken(this.accessToken)
+        
+        // Initialize WebSocket connection after login
+        this.initializeWebSocket()
         
         this.loading = false
         return true

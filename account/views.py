@@ -12,6 +12,8 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from .models import Profile
 from .serializers import (
@@ -103,6 +105,22 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             Profile.objects.create(user=user)
         return user
 
+    def perform_update(self, serializer):
+        user = serializer.save()
+        # Notify connected clients about the profile update
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "user_updates",
+            {
+                "type": "user.update",
+                "message": {
+                    "action": "profile_updated",
+                    "user_id": user.id,
+                    "data": UserSerializer(user).data
+                }
+            }
+        )
+
 
 class LockedView(APIView):
     """View for handling locked accounts via django-axes."""
@@ -160,6 +178,38 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+
+    def perform_update(self, serializer):
+        user = serializer.save()
+        # Notify connected clients about the user update
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "user_updates",
+            {
+                "type": "user.update",
+                "message": {
+                    "action": "user_updated",
+                    "user_id": user.id,
+                    "data": UserSerializer(user).data
+                }
+            }
+        )
+
+    def perform_destroy(self, instance):
+        user_id = instance.id
+        instance.delete()
+        # Notify connected clients about the user deletion
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "user_updates",
+            {
+                "type": "user.update",
+                "message": {
+                    "action": "user_deleted",
+                    "user_id": user_id
+                }
+            }
+        )
 
 
 class ResetUserPasswordView(APIView):
