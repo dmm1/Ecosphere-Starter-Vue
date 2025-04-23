@@ -317,10 +317,12 @@
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
+import Footer from '../../components/layout/Footer.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAuthStore } from '../../store/auth'
 import { useAdminStore } from '../../stores/admin'

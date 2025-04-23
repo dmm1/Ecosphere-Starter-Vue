@@ -10,7 +10,6 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 import { useSettingsStore } from './store/settings'
-import NavBar from './components/layout/NavBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import Toast from './components/ui/Toast.vue'
 
