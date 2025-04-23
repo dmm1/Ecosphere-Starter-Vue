@@ -1,13 +1,6 @@
 <template>
-  <div class="min-h-screen" :class="isDarkMode ? 'dark' : ''">
-    <ToastContainer />
-    <NavBar v-if="isAuthenticated" />
-    <main class="container mx-auto px-4 py-6">
-      <router-view />
-    </main>
-    <footer v-if="isAuthenticated" class="mt-auto py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-      &copy; {{ new Date().getFullYear() }} Ecosphere
-    </footer>
+  <div id="app" class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <router-view />
     <Toast />
   </div>
 </template>
