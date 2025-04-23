@@ -8,6 +8,7 @@
     <footer v-if="isAuthenticated" class="mt-auto py-4 text-center text-sm text-gray-500 dark:text-gray-400">
       &copy; {{ new Date().getFullYear() }} Ecosphere
     </footer>
+    <Toast />
   </div>
 </template>
 
@@ -18,6 +19,7 @@ import { useAuthStore } from './store/auth'
 import { useSettingsStore } from './store/settings'
 import NavBar from './components/layout/NavBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
+import Toast from './components/ui/Toast.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

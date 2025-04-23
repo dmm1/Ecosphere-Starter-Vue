@@ -1,94 +1,92 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 
-// Lazy-loaded components for better performance
-const Login = () => import('../views/auth/Login.vue')
-const Register = () => import('../views/auth/Register.vue')
-const Dashboard = () => import('../views/Dashboard.vue')
-const Profile = () => import('../views/profile/Profile.vue')
-const ChangePassword = () => import('../views/profile/ChangePassword.vue')
-const UserList = () => import('../views/admin/UserList.vue')
-const UserDetail = () => import('../views/admin/UserDetail.vue')
-const NotFound = () => import('../views/NotFound.vue')
+// Import layouts
+import DefaultLayout from '../layouts/DefaultLayout.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'dashboard',
-    component: Dashboard,
-    meta: { requiresAuth: true }
+    component: DefaultLayout,
+    children: [
+      {
+        path: '',
+        name: 'Dashboard',
+        component: () => import('../views/Dashboard.vue'), 
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('../views/profile/Profile.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'change-password',
+        name: 'ChangePassword',
+        component: () => import('../views/profile/ChangePassword.vue'),
+        meta: { requiresAuth: true }
+      }
+    ]
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: 'users',
+        name: 'UserManagement',
+        component: () => import('../views/admin/UserManagement.vue')
+      }
+    ]
   },
   {
     path: '/login',
-    name: 'login',
-    component: Login,
+    name: 'Login',
+    component: () => import('../views/auth/Login.vue'),
     meta: { guestOnly: true }
   },
   {
     path: '/register',
-    name: 'register',
-    component: Register,
+    name: 'Register',
+    component: () => import('../views/auth/Register.vue'),
     meta: { guestOnly: true }
   },
-  {
-    path: '/profile',
-    name: 'profile',
-    component: Profile,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/change-password',
-    name: 'change-password',
-    component: ChangePassword,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/admin/users',
-    name: 'user-list',
-    component: UserList,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/admin/users/:id',
-    name: 'user-detail',
-    component: UserDetail,
-    props: true,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
+  // Removed ForgotPassword and ResetPassword routes since they don't exist yet
   {
     path: '/:pathMatch(.*)*',
-    name: 'not-found',
-    component: NotFound
+    name: 'NotFound',
+    component: () => import('../views/NotFound.vue')
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
-  routes
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+  linkActiveClass: 'active'
 })
 
-// Navigation guards for authentication
-router.beforeEach((to, from, next) => {
+// Navigation guards
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  const isAuthenticated = authStore.isAuthenticated
-  const isAdmin = authStore.isAdmin
   
-  // Check for routes that require authentication
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    return next({ name: 'login' })
+  // Check if the user is authenticated
+  if (!authStore.isAuthenticated && to.meta.requiresAuth) {
+    return next('/login')
   }
   
-  // Check for routes that require admin role
-  if (to.meta.requiresAdmin && !isAdmin) {
-    return next({ name: 'dashboard' })
+  // Check if the route requires admin privileges
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    return next('/')
   }
   
-  // Redirect authenticated users away from login/register
-  if (to.meta.guestOnly && isAuthenticated) {
-    return next({ name: 'dashboard' })
+  // Redirect authenticated users away from guest-only pages
+  if (authStore.isAuthenticated && to.meta.guestOnly) {
+    return next('/')
   }
   
-  // Proceed to the route
   next()
 })
 

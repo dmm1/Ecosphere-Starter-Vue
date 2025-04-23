@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import api from '../api';
 
 interface User {
   id: number;
@@ -47,7 +47,7 @@ export const useAdminStore = defineStore('admin', {
           }
         });
         
-        const response = await axios.get(`/api/admin/users/?${params.toString()}`);
+        const response = await api.get(`/account/users/?${params.toString()}`);
         this.users = response.data.results;
         this.totalUsers = response.data.count;
         return response.data;
@@ -65,7 +65,7 @@ export const useAdminStore = defineStore('admin', {
       this.error = null;
       
       try {
-        const response = await axios.patch(`/api/admin/users/${userData.id}/`, userData);
+        const response = await api.patch(`/account/users/${userData.id}/`, userData);
         
         // Update local state
         this.users = this.users.map(user => 
@@ -87,7 +87,7 @@ export const useAdminStore = defineStore('admin', {
       this.error = null;
       
       try {
-        await axios.delete(`/api/admin/users/${userId}/`);
+        await api.delete(`/account/users/${userId}/`);
         
         // Remove from local state
         this.users = this.users.filter(user => user.id !== userId);
@@ -99,6 +99,23 @@ export const useAdminStore = defineStore('admin', {
       } finally {
         this.loading = false;
       }
-    }
+    },
+
+    // Create new user
+    async createUser(userData: any) {
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await api.post('/account/users/', userData)
+        this.loading = false
+        return response.data
+      } catch (error: any) {
+        this.loading = false
+        this.error = error.response?.data?.message || 'Error creating user'
+        console.error('Error creating user:', error)
+        throw error
+      }
+    },
   }
 });

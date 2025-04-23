@@ -1,48 +1,49 @@
 import { ref } from 'vue';
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
-
 interface Toast {
   id: number;
   message: string;
-  type: ToastType;
-  timeout: number;
+  type: 'success' | 'error' | 'warning' | 'info';
+  duration: number;
 }
 
-// Shared state across instances
+// Create a central toast state
 const toasts = ref<Toast[]>([]);
-let nextId = 1;
+let nextId = 0;
 
 export function useToast() {
-  const showToast = (message: string, type: ToastType = 'info', timeout = 3000) => {
+  // Add a new toast message
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration = 3000) => {
     const id = nextId++;
-    const toast: Toast = {
+    
+    // Add the toast to our list
+    toasts.value.push({
       id,
       message,
       type,
-      timeout
-    };
+      duration
+    });
     
-    toasts.value.push(toast);
-    
-    // Auto remove
+    // Automatically remove the toast after duration
     setTimeout(() => {
       removeToast(id);
-    }, timeout);
-    
-    return id;
+    }, duration);
   };
   
+  // Remove a toast by ID
   const removeToast = (id: number) => {
-    const index = toasts.value.findIndex(t => t.id === id);
-    if (index !== -1) {
-      toasts.value.splice(index, 1);
-    }
+    toasts.value = toasts.value.filter(t => t.id !== id);
+  };
+  
+  // Clear all toasts
+  const clearToasts = () => {
+    toasts.value = [];
   };
   
   return {
     toasts,
     showToast,
-    removeToast
+    removeToast,
+    clearToasts
   };
 }

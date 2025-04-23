@@ -102,16 +102,6 @@
                   User Management
                 </router-link>
                 
-                <!-- Change Password -->
-                <router-link 
-                  to="/change-password" 
-                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
-                  role="menuitem"
-                  @click="profileMenuOpen = false"
-                >
-                  Change Password
-                </router-link>
-                
                 <!-- Divider -->
                 <div class="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                 

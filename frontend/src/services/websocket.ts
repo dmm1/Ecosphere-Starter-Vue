@@ -32,8 +32,8 @@ class WebSocketService {
       this.reconnectTimeout = null;
     }
 
-    // Get the JWT token from localStorage
-    const token = localStorage.getItem('access_token');
+    // Get the JWT token from localStorage with the correct name
+    const token = localStorage.getItem('accessToken'); // Changed from 'access_token' to 'accessToken'
     if (!token) {
       console.error('WebSocket connection failed: No authentication token available');
       this.isConnecting = false;
@@ -45,7 +45,7 @@ class WebSocketService {
     const path = '/ws/notifications/';
     const wsUrl = `${wsScheme}://${host}${path}?token=${token}`;
     
-    console.log('Connecting to WebSocket at:', wsUrl);
+    console.log('Connecting to WebSocket at:', wsUrl.replace(token, 'TOKEN_HIDDEN'));
     
     try {
       this.ws = new WebSocket(wsUrl);
@@ -233,7 +233,15 @@ class WebSocketService {
 
     try {
       const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
-      console.log('Sending WebSocket message:', messageStr);
+      
+      // Log the message with the token removed for security
+      const logMessage = typeof message === 'object' && message.token 
+        ? { ...message, token: 'TOKEN_HIDDEN' } 
+        : message;
+        
+      console.log('Sending WebSocket message:', 
+        typeof logMessage === 'string' ? logMessage : JSON.stringify(logMessage));
+      
       this.ws.send(messageStr);
       return true;
     } catch (e) {

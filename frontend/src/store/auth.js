@@ -147,20 +147,101 @@ export const useAuthStore = defineStore('auth', {
 
     // Handle incoming WebSocket messages
     handleWebSocketMessage(data) {
-      switch (data.type) {
-        case 'notification':
-          // Update user data when receiving a notification
-          this.fetchCurrentUser()
-          break
-        case 'connection_established':
-          console.log('WebSocket connection established:', data.message)
-          break
-        case 'error':
-          console.error('WebSocket error:', data.message)
-          break
-        default:
-          console.log('Unknown message type:', data)
+      // Check for Django Channels message format with type field
+      if (data.type) {
+        switch (data.type) {
+          case 'notification':
+            // Update user data when receiving a notification
+            this.fetchCurrentUser()
+            break
+          case 'connection_established':
+            console.log('WebSocket connection established:', data.message)
+            break
+          case 'error':
+            console.error('WebSocket error:', data.message)
+            break
+          default:
+            console.log('Unknown type message:', data)
+        }
+        return
       }
+      
+      // Handle action-based message format (used by frontend services)
+      if (data.action) {
+        switch (data.action) {
+          case 'profile_updated':
+            console.log('Profile update received for user:', data.user_id)
+            // If it's our user, update our profile data
+            if (this.user && this.user.id === data.user_id) {
+              console.log('Updating current user profile')
+              
+              // Create a completely new user object to ensure reactivity
+              const updatedUser = { ...this.user }
+              
+              // Update profile data directly in the user object
+              if (data.data) {
+                Object.keys(data.data).forEach(key => {
+                  updatedUser[key] = data.data[key]
+                })
+                
+                // If there's a profile object, ensure it's also updated correctly
+                if (updatedUser.profile && data.data.profile) {
+                  updatedUser.profile = { ...updatedUser.profile, ...data.data.profile }
+                }
+              }
+              
+              // Replace the entire user object to trigger reactivity
+              this.user = updatedUser
+              
+              // Emit an event for components to react to profile changes
+              window.dispatchEvent(new CustomEvent('user-profile-updated', { 
+                detail: { userId: data.user_id } 
+              }))
+            } else {
+              // If it's not our user, emit an event for admin user management
+              window.dispatchEvent(new CustomEvent('admin-user-updated', { 
+                detail: { userId: data.user_id, userData: data.data } 
+              }))
+            }
+            break;
+          case 'user_updated':
+            console.log('User update received:', data.user_id)
+            // Refresh user data if it's our user
+            if (this.user && this.user.id === data.user_id) {
+              this.fetchCurrentUser()
+              
+              // Emit profile update event
+              window.dispatchEvent(new CustomEvent('user-profile-updated', { 
+                detail: { userId: data.user_id } 
+              }))
+            } else {
+              // Emit admin user update event
+              window.dispatchEvent(new CustomEvent('admin-user-updated', { 
+                detail: { userId: data.user_id, action: 'updated' } 
+              }))
+            }
+            break;
+          case 'user_deleted':
+            console.log('User deletion notification received:', data.user_id)
+            // If it's our user, log out (account deleted)
+            if (this.user && this.user.id === data.user_id) {
+              console.warn('Your account has been deleted')
+              this.clearAuth()
+            } else {
+              // Emit admin user delete event
+              window.dispatchEvent(new CustomEvent('admin-user-deleted', { 
+                detail: { userId: data.user_id } 
+              }))
+            }
+            break;
+          default:
+            console.log('Unknown action message:', data.action, data)
+        }
+        return
+      }
+      
+      // Fallback for unrecognized message formats
+      console.log('Unrecognized message format:', data)
     },
 
     // Initialize auth from localStorage
