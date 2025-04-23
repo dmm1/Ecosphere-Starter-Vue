@@ -11,6 +11,8 @@ export const useAuthStore = defineStore('auth', {
     error: null,
     socket: null,
     isConnected: false,
+    connectionErrors: 0,
+    wsEnabled: true, // Can be disabled if connection keeps failing
   }),
   
   getters: {
@@ -22,6 +24,12 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     // Initialize WebSocket connection
     initializeWebSocket() {
+      // Don't attempt if WebSockets have been disabled
+      if (!this.wsEnabled) {
+        console.log('WebSocket connections are currently disabled')
+        return
+      }
+
       if (this.socket) {
         this.socket.close()
       }
@@ -31,41 +39,109 @@ export const useAuthStore = defineStore('auth', {
         return
       }
 
-      // For development
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsHost = import.meta.env.DEV ? window.location.hostname + ':8000' : window.location.host
-      const wsUrl = `${wsProtocol}//${wsHost}/ws/notifications/?token=${this.accessToken}`
-
-      console.log('Connecting to WebSocket:', wsUrl)
-      this.socket = new WebSocket(wsUrl)
-
-      this.socket.onopen = () => {
-        this.isConnected = true
-        console.log('WebSocket connected')
-      }
-
-      this.socket.onclose = (event) => {
-        this.isConnected = false
-        console.log('WebSocket disconnected with code:', event.code)
+      try {
+        // For development
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         
-        // Don't reconnect if closed due to authentication issues
-        if (event.code !== 4001) {
-          // Try to reconnect after 5 seconds
+        // Get host information with fallbacks
+        // Try using direct localhost for development if IP connection fails
+        let host = import.meta.env.VITE_WS_HOST || window.location.hostname
+        
+        // Check if we're on a failed reconnection attempt with an IP address
+        // and switch to localhost as a fallback
+        if (this.connectionErrors > 0 && host.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+          console.log('Switching to localhost for WebSocket connection after failed IP attempt')
+          host = 'localhost'
+        }
+        
+        const port = import.meta.env.VITE_WS_PORT || '8000'
+        const wsHost = import.meta.env.DEV ? `${host}:${port}` : window.location.host
+        
+        // Build the WebSocket URL
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/notifications/?token=${this.accessToken}`
+
+        // Log connection attempt (hiding the actual token)
+        const logUrl = wsUrl.replace(this.accessToken, 'TOKEN_HIDDEN')
+        console.log('Connecting to WebSocket:', logUrl)
+        
+        this.socket = new WebSocket(wsUrl)
+        
+        // Set a connection timeout
+        const connectionTimeout = setTimeout(() => {
+          if (this.socket && this.socket.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket connection timeout - closing socket')
+            this.socket.close()
+          }
+        }, 10000) // 10 second timeout
+
+        this.socket.onopen = () => {
+          clearTimeout(connectionTimeout)
+          this.isConnected = true
+          this.connectionErrors = 0 // Reset error counter on success
+          console.log('WebSocket connected successfully')
+        }
+
+        this.socket.onclose = (event) => {
+          clearTimeout(connectionTimeout)
+          this.isConnected = false
+          console.log('WebSocket disconnected with code:', event.code, 'Reason:', event.reason || 'Unknown')
+          
+          // Handle code 1006 (abnormal closure) specifically
+          if (event.code === 1006) {
+            console.warn('WebSocket closed abnormally (code 1006). This might indicate network issues or server unavailability.')
+          }
+          
+          // Don't reconnect if closed due to authentication issues or if we've had too many errors
+          if (![1000, 1001, 4001, 4003, 4004].includes(event.code) && this.connectionErrors < 5) {
+            // Exponential backoff with random jitter
+            const delay = Math.min(1000 * (Math.pow(2, this.connectionErrors) + Math.random()), 30000)
+            this.connectionErrors++
+            console.log(`Attempting to reconnect in ${Math.round(delay/1000)} seconds (attempt ${this.connectionErrors}/5)`)
+            setTimeout(() => this.initializeWebSocket(), delay)
+          } else {
+            if (this.connectionErrors >= 5) {
+              console.warn('Maximum WebSocket reconnection attempts reached. Disabling WebSockets.')
+              this.wsEnabled = false
+              // Store a reminder in localStorage to check server config
+              localStorage.setItem('ws_disabled_at', new Date().toISOString())
+            } else {
+              console.warn('WebSocket closed normally or due to authentication issue, not reconnecting')
+            }
+          }
+        }
+
+        this.socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            this.handleWebSocketMessage(data)
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data)
+          }
+        }
+
+        this.socket.onerror = (error) => {
+          console.error('WebSocket error:', error)
+          
+          // Try to provide more diagnostic information
+          console.log('WebSocket URL:', logUrl)
+          console.log('WebSocket readyState:', this.socket?.readyState)
+          console.log('Check if the server is running and .env configuration is correct')
+          
+          // Additional diagnostics
+          console.log('Network status:', navigator.onLine ? 'Online' : 'Offline')
+          if (host.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+            console.log('Using IP address for connection. If this continues to fail, try using localhost instead.')
+          }
+        }
+      } catch (e) {
+        console.error('Error establishing WebSocket connection:', e)
+        this.connectionErrors++
+        
+        if (this.connectionErrors < 3) {
           setTimeout(() => this.initializeWebSocket(), 5000)
+        } else {
+          console.warn('Failed to establish WebSocket connection after multiple attempts. Please check server configuration.')
         }
-      }
-
-      this.socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          this.handleWebSocketMessage(data)
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error)
-        }
-      }
-
-      this.socket.onerror = (error) => {
-        console.error('WebSocket error:', error)
       }
     },
 
@@ -228,6 +304,44 @@ export const useAuthStore = defineStore('auth', {
         this.error = error.response?.data || 'Password change failed'
         return false
       }
-    }
+    },
+
+    // Reset WebSocket connection
+    resetWebSocketConnection() {
+      this.connectionErrors = 0
+      this.wsEnabled = true
+      localStorage.removeItem('ws_disabled_at')
+      if (this.socket) {
+        this.socket.close()
+        this.socket = null
+      }
+      this.initializeWebSocket()
+    },
+    
+    // Check WebSocket availability and try to initialize if needed
+    checkWebSocketStatus() {
+      // If WebSockets are disabled but it's been more than a day, try again
+      const disabledAt = localStorage.getItem('ws_disabled_at')
+      if (!this.wsEnabled && disabledAt) {
+        const disabledDate = new Date(disabledAt)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        
+        if (disabledDate < oneDayAgo) {
+          console.log('Re-enabling WebSockets after cooldown period')
+          this.resetWebSocketConnection()
+        }
+      }
+      
+      // If authenticated but not connected, try to connect
+      if (this.isAuthenticated && !this.isConnected && this.wsEnabled && !this.socket) {
+        this.initializeWebSocket()
+      }
+      
+      return {
+        enabled: this.wsEnabled,
+        connected: this.isConnected,
+        errors: this.connectionErrors
+      }
+    },
   }
 })
