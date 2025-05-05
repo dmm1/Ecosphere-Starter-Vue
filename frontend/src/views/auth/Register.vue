@@ -120,7 +120,7 @@
           <div>
             <button 
               type="submit" 
-              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
               :disabled="loading"
             >
               <span v-if="loading">
@@ -140,7 +140,7 @@
           <div class="text-center text-sm">
             <p class="text-gray-600 dark:text-gray-400">
               Already have an account?
-              <router-link to="/login" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400">
+              <router-link to="/login" class="font-medium text-green-600 hover:text-green-500 dark:text-green-400">
                 Sign in
               </router-link>
             </p>

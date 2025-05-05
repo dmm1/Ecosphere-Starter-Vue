@@ -163,7 +163,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <router-link 
                     :to="`/admin/users/${user.id}`" 
-                    class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
+                    class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     Edit
                   </router-link>
@@ -214,7 +214,7 @@
                   :class="[
                     'relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium',
                     pageNum === pagination.page ? 
-                      'z-10 bg-primary-50 dark:bg-primary-900 border-primary-500 text-primary-600 dark:text-primary-200' : 
+                      'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 text-blue-600 dark:text-blue-200' : 
                       'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                   ]"
                 >
