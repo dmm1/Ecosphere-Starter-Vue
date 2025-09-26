@@ -1,93 +1,82 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-    <form @submit.prevent="handleSubmit">
-      <div class="space-y-6">
+  <Card>
+    <CardHeader>
+      <CardTitle>Profile Information</CardTitle>
+      <CardDescription>Update your personal information and manage your account settings</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <form @submit.prevent="handleSubmit" class="space-y-6">
         <!-- Email field (disabled, just for display) -->
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Email Address
-          </label>
-          <div class="mt-1">
-            <input
-              id="email"
-              type="email"
-              :value="user?.email"
-              disabled
-              class="bg-gray-100 dark:bg-gray-700 cursor-not-allowed shadow-sm block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md"
-            />
-          </div>
+        <div class="space-y-2">
+          <Label for="email">Email Address</Label>
+          <Input
+            id="email"
+            type="email"
+            :value="user?.email"
+            disabled
+            class="bg-muted cursor-not-allowed"
+          />
         </div>
         
         <!-- First name -->
-        <div>
-          <label for="firstName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            First Name
-          </label>
-          <div class="mt-1">
-            <input
-              id="firstName"
-              v-model="form.first_name"
-              type="text"
-              class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-            />
-          </div>
+        <div class="space-y-2">
+          <Label for="firstName">First Name</Label>
+          <Input
+            id="firstName"
+            v-model="form.first_name"
+            type="text"
+          />
         </div>
         
         <!-- Last name -->
-        <div>
-          <label for="lastName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Last Name
-          </label>
-          <div class="mt-1">
-            <input
-              id="lastName"
-              v-model="form.last_name"
-              type="text"
-              class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-            />
-          </div>
+        <div class="space-y-2">
+          <Label for="lastName">Last Name</Label>
+          <Input
+            id="lastName"
+            v-model="form.last_name"
+            type="text"
+          />
         </div>
         
         <!-- Biography -->
-        <div>
-          <label for="bio" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Biography
-          </label>
-          <div class="mt-1">
-            <textarea
-              id="bio"
-              v-model="form.bio"
-              rows="3"
-              class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-              placeholder="Tell us about yourself"
-            ></textarea>
-          </div>
+        <div class="space-y-2">
+          <Label for="bio">Biography</Label>
+          <textarea
+            id="bio"
+            v-model="form.bio"
+            rows="3"
+            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="Tell us about yourself"
+          ></textarea>
         </div>
         
         <!-- Error message -->
-        <div v-if="error" class="text-red-600 text-sm">
+        <div v-if="error" class="text-destructive text-sm">
           {{ error }}
         </div>
         
         <!-- Submit button -->
         <div class="flex justify-end">
-          <button
+          <Button
             type="submit"
             :disabled="loading"
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
             <span v-if="loading">Saving...</span>
             <span v-else>Save Changes</span>
-          </button>
+          </Button>
         </div>
-      </div>
-    </form>
-  </div>
+      </form>
+    </CardContent>
+  </Card>
 </template>
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import api from '../../api'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { useProfileUpdates } from '../../composables/useProfileUpdates'
 
 const props = defineProps({

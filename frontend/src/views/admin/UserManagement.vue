@@ -1,60 +1,59 @@
 <template>
   <div class="container mx-auto px-4 py-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800 dark:text-white">User Management</h1>
-      <button 
-        class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+      <h1 class="text-2xl font-bold text-foreground">User Management</h1>
+      <Button 
         @click="addNewUser"
       >
         Add New User
-      </button>
+      </Button>
     </div>
     
     <!-- Filters and search -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
-      <div class="flex flex-col sm:flex-row gap-4">
-        <div class="flex-grow">
-          <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
-          <div class="relative rounded-md shadow-sm">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-              </svg>
+    <Card class="mb-6">
+      <CardContent class="p-4">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="flex-grow space-y-2">
+            <Label for="search">Search</Label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <Input
+                id="search"
+                type="text"
+                v-model="searchQuery"
+                @input="debounceSearch"
+                class="pl-10"
+                placeholder="Search by name or email..."
+              />
             </div>
-            <input
-              id="search"
-              type="text"
-              v-model="searchQuery"
-              @input="debounceSearch"
-              class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-              placeholder="Search by name or email..."
-            />
+          </div>
+          
+          <div class="sm:w-48 space-y-2">
+            <Label>Status</Label>
+            <Select v-model="activeFilter" @update:model-value="fetchUsers">
+              <SelectTrigger>
+                <SelectValue placeholder="All Users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="true">Active</SelectItem>
+                <SelectItem value="false">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        
-        <div class="sm:w-48">
-          <label for="status-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-          <select
-            id="status-filter"
-            v-model="activeFilter"
-            @change="fetchUsers"
-            class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-          >
-            <option value="">All Users</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
     
     <!-- Loading indicator -->
-    <div v-if="loading" class="flex justify-center items-center py-12">
-      <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      <span class="text-gray-600 dark:text-gray-300 text-lg">Loading users...</span>
+        <!-- Loading State -->
+    <div v-if="adminStore.loading" class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <span class="text-muted-foreground text-lg">Loading users...</span>
     </div>
     
     <!-- Users table -->
@@ -342,6 +341,11 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAuthStore } from '../../store/auth'
 import { useAdminStore } from '../../stores/admin'
 import { useToast } from '../../composables/useToast'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // State management
 const authStore = useAuthStore()
@@ -356,7 +360,7 @@ const users = ref<any[]>([])
 const editingUser = ref<any>(null)
 const loading = ref(false)
 const searchQuery = ref('')
-const activeFilter = ref('')
+const activeFilter = ref('all')
 const currentPage = ref(1)
 const totalPages = ref(1)
 const formError = ref('')
@@ -412,7 +416,7 @@ const fetchUsers = async () => {
     const response = await adminStore.fetchUsers({
       page: currentPage.value,
       search: searchQuery.value,
-      is_active: activeFilter.value || undefined
+      is_active: activeFilter.value === 'all' ? undefined : activeFilter.value
     })
     
     users.value = response.results || []
