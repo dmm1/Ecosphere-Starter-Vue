@@ -348,6 +348,9 @@ const authStore = useAuthStore()
 const adminStore = useAdminStore()
 const { showToast } = useToast()
 
+// WebSocket subscription cleanup
+const webSocketUnsubscribe = ref<(() => void) | null>(null)
+
 // UI state
 const users = ref<any[]>([])
 const editingUser = ref<any>(null)
@@ -388,16 +391,8 @@ const initializeWebSocket = () => {
       webSocketService.connect();
     }
     
-    // Subscribe to WebSocket updates
-    const unsubscribe = webSocketService.subscribe(handleWebSocketMessage);
-    
-    // Store the unsubscribe function for cleanup
-    onUnmounted(() => {
-      if (unsubscribe) {
-        console.log('Unsubscribing from WebSocket in UserManagement');
-        unsubscribe();
-      }
-    });
+    // Subscribe to WebSocket updates and store unsubscribe function
+    webSocketUnsubscribe.value = webSocketService.subscribe(handleWebSocketMessage);
   }).catch(error => {
     console.error('Failed to import WebSocketService:', error);
   });
@@ -675,6 +670,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // Clean up WebSocket subscription
+  if (webSocketUnsubscribe.value) {
+    console.log('Unsubscribing from WebSocket in UserManagement');
+    webSocketUnsubscribe.value();
+    webSocketUnsubscribe.value = null;
+  }
+  
   window.removeEventListener('admin-user-updated', handleAdminUserUpdate as EventListener)
   window.removeEventListener('admin-user-deleted', handleAdminUserDelete as EventListener)
 })
