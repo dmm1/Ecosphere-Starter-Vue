@@ -137,11 +137,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAuthStore } from '../../store/auth'
+import { useProfileUpdates } from '../../composables/useProfileUpdates'
 import api from '../../api'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const profileLoading = ref(false)
 const passwordLoading = ref(false)
 const successMessage = ref('')
@@ -176,6 +179,53 @@ const loadProfile = () => {
     profileForm.bio = authStore.user.bio || ''
   }
 }
+
+const fetchProfile = async () => {
+  try {
+    const response = await api.get('/account/profile/')
+    authStore.user = response.data
+    loadProfile()
+  } catch (error) {
+    console.error('Failed to fetch profile:', error)
+    // The API interceptor will handle token refresh or logout
+  }
+}
+
+// Handle real-time profile updates
+const { } = useProfileUpdates((updatedUser) => {
+  if (updatedUser && updatedUser.id === authStore.user.id) {
+    loadProfile()
+  }
+})
+
+// Manual handler for showing success message
+const handleProfileUpdate = (event) => {
+  // Only update if it's our user
+  if (authStore.user && event.detail.userId === authStore.user.id) {
+    loadProfile() // Reload profile data from store
+    successMessage.value = 'Your profile was updated in real-time'
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000)
+  }
+}
+
+// Watch for authentication changes
+watch(() => authStore.isAuthenticated, (newValue) => {
+  if (!newValue) {
+    router.push('/login')
+  }
+})
+
+watch(() => authStore.user, (newUser) => {
+  if (!newUser) {
+    router.push('/login')
+  } else {
+    loadProfile()
+  }
+})
 
 // Save profile changes
 const updateProfile = async () => {
@@ -240,22 +290,8 @@ const changePassword = async () => {
   }
 }
 
-// WebSocket profile update handler
-const handleProfileUpdate = (event) => {
-  // Only update if it's our user
-  if (authStore.user && event.detail.userId === authStore.user.id) {
-    loadProfile() // Reload profile data from store
-    successMessage.value = 'Your profile was updated in real-time'
-    
-    // Clear success message after 3 seconds
-    setTimeout(() => {
-      successMessage.value = ''
-    }, 3000)
-  }
-}
-
 onMounted(() => {
-  loadProfile() // Initialize form with current user data
+  fetchProfile() // Fetch profile data from API
   
   // Listen for real-time profile updates
   window.addEventListener('user-profile-updated', handleProfileUpdate)

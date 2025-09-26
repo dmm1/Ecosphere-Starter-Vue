@@ -94,6 +94,14 @@ class WebSocketService {
             console.log('Processing Django format message:', data.type);
             // Send the actual message content to subscribers
             this.subscribers.forEach(callback => callback(data.message));
+            
+            // Dispatch custom event for profile updates
+            if (data.message.action === 'profile_updated') {
+              window.dispatchEvent(new CustomEvent('user-profile-updated', { 
+                detail: { userId: data.message.user_id } 
+              }));
+            }
+            
             return;
           }
           
@@ -101,6 +109,14 @@ class WebSocketService {
           if (data.action) {
             console.log('Processing action message:', data.action);
             this.subscribers.forEach(callback => callback(data));
+            
+            // Dispatch custom event for profile updates
+            if (data.action === 'profile_updated') {
+              window.dispatchEvent(new CustomEvent('user-profile-updated', { 
+                detail: { userId: data.user_id } 
+              }));
+            }
+            
             return;
           }
 

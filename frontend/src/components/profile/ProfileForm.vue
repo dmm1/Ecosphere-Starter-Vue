@@ -88,6 +88,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import api from '../../api'
+import { useProfileUpdates } from '../../composables/useProfileUpdates'
 
 const props = defineProps({
   user: {
@@ -116,6 +117,15 @@ watch(() => props.user, (newUser) => {
     form.bio = newUser.bio || ''
   }
 }, { immediate: true })
+
+// Handle real-time profile updates
+const {} = useProfileUpdates((updatedUser) => {
+  if (updatedUser && updatedUser.id === props.user.id) {
+    form.first_name = updatedUser.first_name || ''
+    form.last_name = updatedUser.last_name || ''
+    form.bio = updatedUser.bio || ''
+  }
+})
 
 // Form submission
 const handleSubmit = async () => {

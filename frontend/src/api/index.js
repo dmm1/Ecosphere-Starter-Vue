@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '../store/auth'
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -48,12 +49,21 @@ api.interceptors.response.use(
         // Update default headers for future requests
         api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`
         
+        // Update auth store
+        const authStore = useAuthStore()
+        authStore.accessToken = newAccessToken
+        
         // Retry the original request
         return api(originalRequest)
       } catch (refreshError) {
         // If refresh fails, clear tokens and reject
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
+        
+        // Clear auth store
+        const authStore = useAuthStore()
+        authStore.clearAuth()
+        
         return Promise.reject(refreshError)
       }
     }
